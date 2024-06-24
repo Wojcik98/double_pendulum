@@ -25,6 +25,13 @@ setup(
         "argparse",
         "opencv-python",
         "pyyaml",
+        "torch==2.0.1",
+        "torchvision>=0.14.1",  # ensure compatibility with torch 1.13.1
+        "tensorboard",
+        "h5py",
+        "moviepy",
+        "protobuf>=3.20.2",
+        "torchode",
         # c++ python bindings
         "cython<1.0.0",
     ],
