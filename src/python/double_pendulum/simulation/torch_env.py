@@ -54,6 +54,7 @@ class TorchEnv(VecEnv):
         self.state = torch.zeros((self.num_envs, 4), device=self.device)
         self.prev_action = torch.zeros((self.num_envs, 2), device=self.device)
         self.infos = {"observations": {"policy": self.state}}
+
         self.reset()
 
         self.plant = TorchPlant(plant_params)
@@ -74,6 +75,7 @@ class TorchEnv(VecEnv):
         self.state[idxs] = new_state[idxs]
         self.state = self._trim_state(self.state)
         self.infos = {"observations": {"policy": self.state}}
+
         return self.get_observations()
 
     def step(
