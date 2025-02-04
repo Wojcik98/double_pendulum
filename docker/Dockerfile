@@ -39,6 +39,8 @@ WORKDIR "/double_pendulum"
 
 # RUN git checkout v0.1.0
 
+RUN pip install mpc
+
 RUN make install
 RUN make pythonfull
 # RUN make doc

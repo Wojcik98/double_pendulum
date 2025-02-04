@@ -39,3 +39,4 @@ experiments/design_independent/data/*
 *local*
 .idea/
 .vscode/
+**/logs/
