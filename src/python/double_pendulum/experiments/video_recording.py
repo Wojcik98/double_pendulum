@@ -18,14 +18,18 @@ class VideoWriterWidget(object):
         self.frame_height = int(self.capture.get(4))
 
         # Set up codec and output video settings
-        self.codec = cv2.VideoWriter_fourcc("M", "J", "P", "G")
-        self.fps = 30
+        # self.codec = cv2.VideoWriter_fourcc("M", "J", "P", "G")
+        self.codec = cv2.VideoWriter_fourcc("m", "p", "4", "v")
+        self.fps = 24
         self.output_video = cv2.VideoWriter(
             self.video_file_name,
             self.codec,
             self.fps,
             (self.frame_width, self.frame_height),
         )
+
+        # stops the recording when set to False
+        self.recording = True
 
         # Start the thread to read frames from the video stream
         self.thread = Thread(target=self.update, args=())
@@ -38,7 +42,7 @@ class VideoWriterWidget(object):
 
     def update(self):
         # Read the next frame from the stream in a different thread
-        while True:
+        while self.recording:
             if self.capture.isOpened():
                 (self.status, self.frame) = self.capture.read()
 
@@ -63,7 +67,7 @@ class VideoWriterWidget(object):
     def start_recording(self):
         # Create another thread to show/save frames
         def start_recording_thread():
-            while True:
+            while self.recording:
                 try:
                     # self.show_frame()
                     self.save_frame()
@@ -73,3 +77,6 @@ class VideoWriterWidget(object):
         self.recording_thread = Thread(target=start_recording_thread, args=())
         self.recording_thread.daemon = True
         self.recording_thread.start()
+
+    def stop_threads(self):
+        self.recording = False

@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 setup(
     name="DoublePendulum",
@@ -45,24 +45,27 @@ setup(
             "drake",
             "meshcat",
             "gymnasium",
-            "stable_baselines3",
+            "stable_baselines3==2.3.2",
             "shimmy",
             "jax",
             "jaxlib",
             "flax",
             "tqdm",
+            "cloudpickle==3.0.0",
         ],
         "doc": ["sphinx", "sphinx-rtd-theme", "numpydoc"],
         "test": ["pytest", "lark"],
         "OC": ["drake", "meshcat"],
         "RL": [
             "gymnasium",
-            "stable_baselines3",
+            "stable_baselines3==2.3.2",
             "shimmy",
             "jax",
             "jaxlib",
             "flax",
             "tqdm",
+            "cloudpickle==3.0.0",
+            "evotorch",
         ],
     },
     classifiers=[
