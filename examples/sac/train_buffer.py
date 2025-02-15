@@ -4,9 +4,9 @@ from datetime import datetime
 
 import torch
 from double_pendulum.model.torch_plant import Integrator
-from double_pendulum.simulation.torch_env import TorchEnv
+from double_pendulum.simulation.buffer_env import BufferEnv
 from mdp import reset_fun, reward_fun
-from rsl_rl.algorithms import PPO
+from rsl_rl.algorithms import PPO, SAC
 from rsl_rl.runners import Runner
 from rsl_rl.runners.callbacks import make_interval_cb, make_save_model_cb, make_wandb_cb
 from utils import load_plant_params, parse_args
@@ -35,11 +35,12 @@ def main():
         integrator=integrator,
         reset_fun=reset_fun,
         reward_fun=reward_fun,
-        termination_reward=-10.0,
+        termination_reward=0.0,
     )
-    env = TorchEnv(**env_kwargs)
+    env = BufferEnv(gamma=agent_cfg.gamma, **env_kwargs)
 
-    agent = PPO(env, device=device, **asdict(agent_cfg))
+    agent = SAC(env, device=device, **asdict(agent_cfg))
+    # agent = PPO(env, device=device)
 
     config = dict(
         agent_kwargs=asdict(agent_cfg),
@@ -59,26 +60,14 @@ def main():
     log_dir = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     log_dir = os.path.join(log_root_path, log_dir)
 
-    learn_cb = [
+    runner = Runner(env, agent, device=device, **asdict(runner_cfg))
+    runner._learn_cb = [
         Runner._log,
         # make_wandb_cb(wandb_learn_config),
         make_interval_cb(make_save_model_cb(log_dir), interval=50),
     ]
-    eval_cb = [
-        # make_wandb_cb(wandb_learn_config),
-    ]
-    runner = Runner(
-        env,
-        agent,
-        device=device,
-        learn_cb=learn_cb,
-        evaluation_cb=eval_cb,
-        **asdict(runner_cfg),
-    )
 
-    runner.learn(iterations=aio_cfg.iterations, return_epochs=10)
-    print("\n\nRunning evaluation\n\n")
-    runner.evaluate(aio_cfg.max_episode_length_steps)
+    runner.learn(iterations=aio_cfg.iterations, return_epochs=100)
 
 
 if __name__ == "__main__":

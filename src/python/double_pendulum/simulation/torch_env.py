@@ -30,19 +30,15 @@ class TorchEnv(VecEnv):
         termination_reward: float = -1.0,
         robot: Robot = Robot.ACROBOT,
     ):
-        self.num_envs = num_envs
-        self.device = device
-        self.max_episode_length = max_episode_length
+        super().__init__(5, 5, device, num_envs, max_episode_length)
+
         self.integrator = integrator
         self._reset_fun = reset_fun
         self._reward_fun = reward_fun
         self._termination_reward = termination_reward
         self.robot = robot
-        self._zeros = torch.zeros((num_envs, 1), device=device)
 
         self.num_actions = 1  # shoulder or elbow, depending on the robot
-        self.num_obs = 4
-        self.num_privileged_obs = 0
 
         self.step_counter = torch.zeros(num_envs, dtype=torch.long, device=device)
         self.dt = plant_params.dt
@@ -51,59 +47,93 @@ class TorchEnv(VecEnv):
         self.pos_limit = 2 * torch.pi
         self.vel_limit = 15.0
 
-        self.state = torch.zeros((self.num_envs, 4), device=self.device)
+        self.state = torch.zeros((self.num_envs, 5), device=self.device)
         self.prev_action = torch.zeros((self.num_envs, 2), device=self.device)
-        self.infos = {"observations": {"policy": self.state}}
-
+        self.infos = {
+            "observations": {"policy": self.state},
+            "time_outs": torch.zeros(
+                self.num_envs, dtype=torch.long, device=self.device
+            ),
+        }
         self.reset()
 
         self.plant = TorchPlant(plant_params)
+        self.cfg = plant_params
 
     def get_observations(self) -> tuple[torch.Tensor, dict]:
         # TODO normalization
         return self.state, self.infos
+
+    def get_privileged_observations(self) -> Optional[torch.Tensor]:
+        return self.get_observations()
 
     def reset(self, idxs: Optional[torch.Tensor] = None) -> tuple[torch.Tensor, dict]:
         if idxs is None:
             idxs = torch.ones(self.num_envs, dtype=torch.bool, device=self.device)
 
         if self._reset_fun is None:
-            new_state = torch.zeros((self.num_envs, 4), device=self.device)
+            new_state = torch.zeros((self.num_envs, 5), device=self.device)
         else:
             new_state = self._reset_fun(self.num_envs, self.device)
 
+        new_state = self._normalize_state(new_state)
         self.state[idxs] = new_state[idxs]
-        self.state = self._trim_state(self.state)
-        self.infos = {"observations": {"policy": self.state}}
-
-        return self.get_observations()
+        self.infos["observations"]["policy"] = self.state
+        return self.get_observations()[0]  # return only the state
 
     def step(
         self, actions: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, dict]:
-        if self.robot == Robot.ACROBOT:
-            actions = torch.cat((self._zeros, 10 * actions), dim=1)
-            # actions = torch.cat((self._zeros, actions), dim=1)
-        else:
-            actions = torch.cat((10 * actions, self._zeros), dim=1)
-            # actions = torch.cat((actions, self._zeros), dim=1)
+        actions = self._denormalize_action(actions)
 
-        next_state = self._dynamics(self.state, actions)
-        self.state = next_state
+        true_state = self._denormalize_state(self.state)
+        next_state = self._dynamics(true_state, actions)
+
+        self.state = self._normalize_state(next_state)
+        true_state = next_state
         self.infos = {"observations": {"policy": self.state}}
 
         self.step_counter += 1
         timeouts = self.step_counter >= self.max_episode_length
-        self.infos["time_outs"] = timeouts
-        terminations = self._get_terminations(self.state)
+        terminations = self._get_terminations(true_state)
         dones = timeouts | terminations
+        self.infos["time_outs"] = timeouts.to(dtype=torch.long)
         self.step_counter[dones] = 0
         self.reset(dones)
+        dones = dones.to(dtype=torch.long)
 
-        rewards = self._get_rewards(self.state, actions, self.prev_action)
+        rewards = self._get_rewards(true_state, actions, self.prev_action)
         rewards[terminations] += self._termination_reward
         self.prev_action = actions
         return self.state, rewards, dones, self.infos
+
+    def _normalize_state(self, state: torch.Tensor) -> torch.Tensor:
+        normalized = state.clone()
+        normalized[:, :2] /= self.pos_limit
+        normalized[:, 2:4] /= self.vel_limit
+        normalized[:, 4] /= self.torque_limit
+
+        return normalized
+
+    def _denormalize_state(self, state: torch.Tensor) -> torch.Tensor:
+        denormalized = state.clone()
+        denormalized[:, :2] *= self.pos_limit
+        denormalized[:, 2:4] *= self.vel_limit
+        denormalized[:, 4] *= self.torque_limit
+
+        return denormalized
+
+    def _normalize_action(self, action: torch.Tensor) -> torch.Tensor:
+        normalized = action.clone()
+        normalized /= self.torque_limit
+
+        return normalized
+
+    def _denormalize_action(self, action: torch.Tensor) -> torch.Tensor:
+        denormalized = action.clone()
+        denormalized *= self.torque_limit
+
+        return denormalized
 
     def _get_rewards(
         self,
@@ -114,21 +144,32 @@ class TorchEnv(VecEnv):
         if self._reward_fun is None:
             rewards = torch.ones((self.num_envs,), device=self.device)
         else:
-            rewards = self._reward_fun(state, actions, prev_actions, self.device)
+            rewards = self._reward_fun(
+                self.plant, state, actions, prev_actions, self.device
+            )
 
         return rewards
 
     def _dynamics(self, state: torch.Tensor, actions: torch.Tensor) -> torch.Tensor:
         """Integration."""
         actions = self._trim_actions(actions)
-        # print(actions.min(), actions.max())
+        if self.robot == Robot.ACROBOT:
+            torques = torch.cat(
+                (torch.zeros((self.num_envs, 1), device=self.device), actions), dim=1
+            )
+        else:
+            torques = torch.cat(
+                (actions, torch.zeros((self.num_envs, 1), device=self.device)), dim=1
+            )
+        state = state[:, :4]
 
         if self.integrator == Integrator.RUNGE_KUTTA:
-            dx = self._runge_kutta_integrator(state, actions, self.dt)
+            dx = self._runge_kutta_integrator(state, torques, self.dt)
         else:
-            dx = self._euler_integrator(state, actions, self.dt)
+            dx = self._euler_integrator(state, torques, self.dt)
 
-        new_state = self._trim_state(state + self.dt * dx)
+        new_state = state + self.dt * dx
+        new_state = torch.cat((new_state, actions), dim=1)
         return new_state
 
     def _runge_kutta_integrator(
@@ -149,15 +190,14 @@ class TorchEnv(VecEnv):
     def _trim_actions(self, actions: torch.Tensor) -> torch.Tensor:
         return torch.clamp(actions, -self.torque_limit, self.torque_limit)
 
-    def _trim_state(self, state: torch.Tensor) -> torch.Tensor:
-        # state[:, :2] = torch.clamp(state[:, :2], -self.pos_limit, self.pos_limit)
-        # vel[mask] = 0.0
-        state[:, 2:] = torch.clamp(state[:, 2:], -self.vel_limit, self.vel_limit)
-
-        return state
-
     def _get_terminations(self, state: torch.Tensor) -> torch.Tensor:
         pos = state[:, :2]
-        mask = (pos < -self.pos_limit) | (pos > self.pos_limit)
+        vel = state[:, 2:4]
+        mask = (
+            (pos < -self.pos_limit)
+            | (pos > self.pos_limit)
+            # | (vel < -self.vel_limit)
+            # | (vel > self.vel_limit)
+        )
         mask = torch.any(mask, dim=1)
         return mask

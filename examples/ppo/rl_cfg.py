@@ -1,36 +1,32 @@
 from configclass import configclass
 
-from rsl_rl_cfg_defs import (
-    RslRlOnPolicyRunnerCfg,
-    RslRlPpoActorCriticCfg,
-    RslRlPpoAlgorithmCfg,
-)
+from rsl_rl_cfg_defs import RunnerCfg, PPOCfg
 
 
 @configclass
-class AIOlympicsPPORunnerCfg(RslRlOnPolicyRunnerCfg):
+class AIOlympicsPPOCfg(PPOCfg):
+    benchmark = False
+    action_min = -1.0
+    action_max = 1.0
+    return_steps = 1
+    polyak = 0.995
+    critic_input_normalization = False
+    actor_input_normalization = False
+    batch_count = 5
+    batch_size = 10000
+    gamma = 0.995
+    actor_noise_std = 0.3
+    learning_rate = 1e-3
+    schedule = "fixed"
+    actor_activations = ["elu", "elu", "linear"]
+    actor_hidden_dims = [16, 16]
+    actor_init_gain = 0.5
+    critic_activations = ["elu", "elu", "elu", "linear"]
+    critic_hidden_dims = [32, 32, 32]
+    critic_init_gain = 0.5
+    value_coeff = 1.0
+
+
+@configclass
+class AIOlympicsRunnerCfg(RunnerCfg):
     num_steps_per_env = 100
-    max_iterations = 200
-    save_interval = 50
-    experiment_name = "ai_olympics"
-    empirical_normalization = False
-    policy = RslRlPpoActorCriticCfg(
-        init_noise_std=0.1,
-        actor_hidden_dims=[32, 32, 32],
-        critic_hidden_dims=[32, 32, 32],
-        activation="elu",
-    )
-    algorithm = RslRlPpoAlgorithmCfg(
-        value_loss_coef=1.0e-3,
-        use_clipped_value_loss=True,
-        clip_param=0.2,
-        entropy_coef=0.01,
-        num_learning_epochs=5,
-        num_mini_batches=4,
-        learning_rate=1.0e-3,
-        schedule="adaptive",
-        gamma=0.993,
-        lam=0.95,
-        desired_kl=0.01,
-        max_grad_norm=1.0,
-    )

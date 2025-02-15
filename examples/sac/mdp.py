@@ -4,13 +4,11 @@ from typing import List, Callable
 
 
 def reset_fun(num_envs: int, device: torch.device) -> torch.Tensor:
-    mean = torch.zeros(num_envs, 5, device=device)
-    mean[:, 0] = torch.pi
+    mean = torch.zeros(num_envs, 4, device=device)
+    mean[:, 0] = torch.pi - 0.05
     # std = 1.5
-    std = 0.5
-    state = torch.normal(mean, std)
-    state[:, 4] = 0.0
-    return state
+    std = 0.1
+    return torch.normal(mean, std)
 
 
 def get_reward_fun(
@@ -43,7 +41,7 @@ def get_reward_fun(
         y_diff = target_y - ee_y
         # height_reward = torch.exp(torch.abs(ee_y)) * torch.sign(ee_y)
         height_reward = torch.exp(ee_y) * (ee_y > 0.4).float()
-        # height_reward = torch.exp(-y_diff) / 10
+        # height_reward = torch.exp(-y_diff)
         x_reward = torch.exp(-ee_x.abs())
 
         # vel = (state[:, 2:] ** 2).mean(dim=1)
@@ -66,7 +64,7 @@ def get_reward_fun(
         x_diff_penalty = ee_x.abs()
 
         reward = (
-            height_reward
+            height_reward / 10
             - vel_weight * vel
             - torque_weight * torques_penalty
             - action_diff_weight * action_diff_penalty
@@ -81,5 +79,4 @@ def get_reward_fun(
 
 
 # reward_fun = get_reward_fun([0, 1e-3, 1e-3, 1e-2, 1e-1, 1e-1])
-# reward_fun = get_reward_fun([1e-5, 1e-5, 1e-5, 0, 0, 0])
-reward_fun = get_reward_fun([0, 0, 0, 0, 0, 0])
+reward_fun = get_reward_fun([1e-5, 1e-5, 1e-5, 0, 0, 0])

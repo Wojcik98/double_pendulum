@@ -8,8 +8,8 @@ import torch
 from double_pendulum.model.model_parameters import model_parameters
 from double_pendulum.model.torch_plant import Integrator, PlantParams
 from double_pendulum.simulation.torch_env import Robot, TorchEnv
-from rl_cfg import AIOlympicsRunnerCfg, AIOlympicsPPOCfg
-from rsl_rl_cfg_defs import RunnerCfg, PPOCfg
+from rl_cfg import AIOlympicsRunnerCfg, AIOlympicsSACCfg
+from rsl_rl_cfg_defs import RunnerCfg, SACCfg
 
 
 @dataclass
@@ -28,7 +28,7 @@ class AIOlympicsCfg:
         return int(self.max_episode_length_time / self.dt)
 
 
-def parse_args() -> tuple[AIOlympicsCfg, PPOCfg, RunnerCfg]:
+def parse_args() -> tuple[AIOlympicsCfg, SACCfg, RunnerCfg]:
     args_cli = get_cli()
     if args_cli.robot == "acrobot":
         robot = Robot.ACROBOT
@@ -44,7 +44,22 @@ def parse_args() -> tuple[AIOlympicsCfg, PPOCfg, RunnerCfg]:
         iterations=args_cli.iterations,
     )
 
-    rslrl_cfg = AIOlympicsPPOCfg()
+    rslrl_cfg = AIOlympicsSACCfg()
+    # override the default configuration with CLI arguments
+    # if args_cli.seed is not None:
+    #     rslrl_cfg.seed = args_cli.seed
+    # if args_cli.resume is not None:
+    #     rslrl_cfg.resume = args_cli.resume
+    # if args_cli.load_run is not None:
+    #     rslrl_cfg.load_run = args_cli.load_run
+    # if args_cli.checkpoint is not None:
+    #     rslrl_cfg.load_checkpoint = args_cli.checkpoint
+    # if args_cli.run_name is not None:
+    #     rslrl_cfg.run_name = args_cli.run_name
+    # if args_cli.logger is not None:
+    #     rslrl_cfg.logger = args_cli.logger
+    # if args_cli.experiment_name is not None:
+    #     rslrl_cfg.experiment_name = args_cli.experiment_name
 
     runner_cfg = AIOlympicsRunnerCfg()
     if args_cli.num_steps_per_env is not None:

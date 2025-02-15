@@ -103,32 +103,42 @@ class ActorCriticCfg(AgentCfg):
 
 
 @configclass
-class PPOCfg(ActorCriticCfg):
-    """Configuration for the PPO agent."""
+class SACCfg(ActorCriticCfg):
+    """Configuration for the SAC agent."""
+
+    actor_lr: float = 1e-4
+    """The learning rate for the actor network."""
 
     actor_noise_std: float = 1.0
     """The standard deviation of the actor noise."""
 
-    clip_ratio: float = 0.2
-    """The clip ratio for the PPO loss."""
+    alpha: float = 0.2
+    """The entropy regularization coefficient."""
 
-    entropy_coeff: float = 0.0
-    """The entropy coefficient for the PPO loss."""
+    alpha_lr: float = 1e-3
+    """The learning rate for the entropy regularization coefficient."""
 
-    gae_lambda: float = 0.97
-    """The generalized advantage estimation lambda."""
+    chimera: bool = True
+    """Whether to use separate heads for computing action mean and std (True)
+    or treat the std as a tunable parameter."""
+
+    critic_lr: float = 1e-3
+    """The learning rate for the critic network."""
 
     gradient_clip: float = 1.0
-    """The gradient clip value."""
+    """The gradient clipping value."""
 
-    learning_rate: float = 1e-3
-    """The learning rate for the PPO agent."""
+    log_std_max: float = 4.0
+    """The maximum log standard deviation value."""
 
-    schedule: str = "fixed"  # "fixed" or "adaptive"
-    """The learning rate schedule for the PPO agent."""
+    log_std_min: float = -20.0
+    """The minimum log standard deviation value."""
 
-    target_kl: float = 0.01
-    """The target KL divergence value."""
+    storage_initial_size: int = 0
+    """The initial size of the storage."""
 
-    value_coeff: float = 1.0
-    """The value coefficient for the PPO loss."""
+    storage_size: int = 100000
+    """The size of the storage."""
+
+    target_entropy: float = None
+    """The target entropy value."""

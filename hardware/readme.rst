@@ -1,1 +1,0 @@
-../docs/text/hardware.testbench.rst

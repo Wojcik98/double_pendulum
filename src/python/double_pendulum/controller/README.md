@@ -1,1 +1,0 @@
-../../../../docs/text/software_structure.controller.rst

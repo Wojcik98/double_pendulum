@@ -8,7 +8,6 @@ import torch
 from double_pendulum.model.model_parameters import model_parameters
 from double_pendulum.model.torch_plant import Integrator, PlantParams, TorchPlant
 from double_pendulum.simulation.torch_env import Robot, TorchEnv
-
 from mdp import reset_fun, reward_fun
 from rsl_rl.algorithms import PPO, SAC
 from rsl_rl.runners import Runner
@@ -26,31 +25,7 @@ def main():
     dt = aio_cfg.dt
     max_episode_length = aio_cfg.max_episode_length_steps
     integrator = Integrator.RUNGE_KUTTA
-    # start = [0.0, 0.0, 0.0, 0.0]
-    # goal = [np.pi, 0.0, 0.0, 0.0]
-    plant_params = load_plant_params(num_envs, device)
-    plant = TorchPlant(plant_params)
-
-    def reset_fun(num_envs: int, device: torch.device) -> torch.Tensor:
-        mean = torch.zeros(num_envs, 4, device=device)
-        # mean[:, 0] = torch.pi
-        std = 0.5
-        return torch.normal(mean, std)
-
-    def reward_fun(
-        state: torch.Tensor,
-        action: torch.Tensor,
-        prev_action: torch.Tensor,
-        device: torch.device,
-    ) -> torch.Tensor:
-        kin = plant.forward_kinematics(state[:, :2])
-        ee_y = kin[:, 1, 1]
-        # print(ee_y.mean())
-        vel = state[:, 2:].abs().sum(dim=1)
-
-        reward = ee_y - 0.001 * vel
-
-        return reward
+    plant_params = load_plant_params(num_envs, dt, device)
 
     env = TorchEnv(
         num_envs,
@@ -80,7 +55,6 @@ def main():
     log_root_path = os.path.join("logs", "ai_olympics")
     log_root_path = os.path.abspath(log_root_path)
     print(f"[INFO] Loading experiment from directory: {log_root_path}")
-    print(f"[INFO] Loading run: {aio_cfg.load_run}")
     resume_path = get_checkpoint_path(
         log_root_path, aio_cfg.load_run, aio_cfg.checkpoint
     )

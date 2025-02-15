@@ -8,8 +8,8 @@ import torch
 from double_pendulum.model.model_parameters import model_parameters
 from double_pendulum.model.torch_plant import Integrator, PlantParams
 from double_pendulum.simulation.torch_env import Robot, TorchEnv
-from rl_cfg import AIOlympicsRunnerCfg, AIOlympicsPPOCfg
-from rsl_rl_cfg_defs import RunnerCfg, PPOCfg
+from rl_cfg import AIOlympicsDQNCfg
+from rsl_rl_cfg_defs import DQNCfg
 
 
 @dataclass
@@ -22,13 +22,14 @@ class AIOlympicsCfg:
     iterations: int = 100
     load_run: str = ""
     checkpoint: str = ".*"
+    log_wandb: bool = False
 
     @property
     def max_episode_length_steps(self) -> int:
         return int(self.max_episode_length_time / self.dt)
 
 
-def parse_args() -> tuple[AIOlympicsCfg, PPOCfg, RunnerCfg]:
+def parse_args() -> tuple[AIOlympicsCfg, DQNCfg]:
     args_cli = get_cli()
     if args_cli.robot == "acrobot":
         robot = Robot.ACROBOT
@@ -42,15 +43,15 @@ def parse_args() -> tuple[AIOlympicsCfg, PPOCfg, RunnerCfg]:
         robot=robot,
         dt=args_cli.dt,
         iterations=args_cli.iterations,
+        log_wandb=args_cli.log,
     )
 
-    rslrl_cfg = AIOlympicsPPOCfg()
+    rl_cfg = AIOlympicsDQNCfg()
 
-    runner_cfg = AIOlympicsRunnerCfg()
     if args_cli.num_steps_per_env is not None:
-        runner_cfg.num_steps_per_env = args_cli.num_steps_per_env
+        rl_cfg.num_steps_per_env = args_cli.num_steps_per_env
 
-    return aio_cfg, rslrl_cfg, runner_cfg
+    return aio_cfg, rl_cfg
 
 
 def get_cli() -> argparse.Namespace:
@@ -105,11 +106,10 @@ def get_cli() -> argparse.Namespace:
     )
     # -- logger arguments
     arg_group.add_argument(
-        "--logger",
-        type=str,
-        default=None,
-        choices={"wandb", "tensorboard", "neptune"},
-        help="Logger module to use.",
+        "--log",
+        default=False,
+        help="Whether to log the experiment using wandb.",
+        action="store_true",
     )
     arg_group.add_argument(
         "--log_project_name",

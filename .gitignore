@@ -40,3 +40,12 @@ experiments/design_independent/data/*
 .idea/
 .vscode/
 **/logs/
+examples/sac/wandb_config.py
+examples/sac/wandb/
+examples/sac/logs/
+examples/ppo/wandb_config.py
+examples/ppo/wandb/
+examples/ppo/logs/
+examples/dqn/wandb_config.py
+examples/dqn/wandb/
+examples/dqn/logs/
