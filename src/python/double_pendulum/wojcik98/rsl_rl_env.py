@@ -1,9 +1,10 @@
 from enum import Enum, auto
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 import torch
-from double_pendulum.model.torch_plant import Integrator, PlantParams, TorchPlant
 from rsl_rl.env import VecEnv
+
+from double_pendulum.wojcik98.torch_plant import Integrator, PlantParams, TorchPlant
 
 # args: (num_envs, device), returns: state
 ResetFun = Callable[[int, torch.device], torch.Tensor]
@@ -17,7 +18,7 @@ class Robot(Enum):
     PENDUBOT = auto()
 
 
-class TorchEnv(VecEnv):
+class RslRlEnv(VecEnv):
     def __init__(
         self,
         num_envs: int,
@@ -30,7 +31,24 @@ class TorchEnv(VecEnv):
         termination_reward: float = -1.0,
         robot: Robot = Robot.ACROBOT,
     ):
-        super().__init__(5, 5, device, num_envs, max_episode_length)
+        self.num_envs = num_envs
+        self.num_obs = 5
+        self.num_privileged_obs = 5
+        self.num_actions = 1
+        self.max_episode_length = max_episode_length
+        self.device = device
+
+        self.privileged_obs_buf = torch.zeros(
+            (num_envs, self.num_privileged_obs), device=device
+        )
+        self.obs_buf = torch.zeros((num_envs, self.num_obs), device=device)
+        self.rew_buf = torch.zeros((num_envs,), device=device)
+        self.reset_buf = torch.zeros((num_envs,), dtype=torch.bool, device=device)
+        self.episode_length_buf = torch.zeros(
+            (num_envs,), dtype=torch.long, device=device
+        )
+
+        self.extras = {"episode_reward": torch.zeros((num_envs,), device=device)}
 
         self.integrator = integrator
         self._reset_fun = reset_fun
@@ -65,7 +83,7 @@ class TorchEnv(VecEnv):
         return self.state, self.infos
 
     def get_privileged_observations(self) -> Optional[torch.Tensor]:
-        return self.get_observations()
+        return self.get_observations()[0]
 
     def reset(self, idxs: Optional[torch.Tensor] = None) -> tuple[torch.Tensor, dict]:
         if idxs is None:
@@ -91,7 +109,7 @@ class TorchEnv(VecEnv):
 
         self.state = self._normalize_state(next_state)
         true_state = next_state
-        self.infos = {"observations": {"policy": self.state}}
+        self.infos: dict[str, Any] = {"observations": {"policy": self.state}}
 
         self.step_counter += 1
         timeouts = self.step_counter >= self.max_episode_length

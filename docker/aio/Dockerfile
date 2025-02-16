@@ -23,7 +23,9 @@ RUN git clone https://github.com/leggedrobotics/rsl_rl ~/rsl_rl && \
     cd ~/rsl_rl && \
     pip3 install -e . --config-settings editable_mode=strict
 
-RUN pip3 install mpc
+RUN pip3 install \
+    mpc \
+    skrl["torch"]
 
 # SHELL ["/bin/bash", "-c"]
 # COPY entrypoint.sh entrypoint.sh

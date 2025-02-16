@@ -10,8 +10,8 @@ from double_pendulum.model.torch_plant import Integrator, PlantParams, TorchPlan
 from double_pendulum.simulation.torch_env import Robot, TorchEnv
 
 from mdp import reset_fun, reward_fun
-from rsl_rl.algorithms import PPO, SAC
-from rsl_rl.runners import Runner
+from rsl_rl.algorithms import PPO  # , SAC
+from rsl_rl.runners import OnPolicyRunner as Runner
 from utils import get_checkpoint_path, load_plant_params, parse_args
 
 
@@ -28,11 +28,11 @@ def main():
     integrator = Integrator.RUNGE_KUTTA
     # start = [0.0, 0.0, 0.0, 0.0]
     # goal = [np.pi, 0.0, 0.0, 0.0]
-    plant_params = load_plant_params(num_envs, device)
+    plant_params = load_plant_params(num_envs, dt, device)
     plant = TorchPlant(plant_params)
 
     def reset_fun(num_envs: int, device: torch.device) -> torch.Tensor:
-        mean = torch.zeros(num_envs, 4, device=device)
+        mean = torch.zeros(num_envs, 5, device=device)
         # mean[:, 0] = torch.pi
         std = 0.5
         return torch.normal(mean, std)
