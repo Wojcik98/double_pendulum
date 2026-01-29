@@ -23,13 +23,14 @@ def run_experiment(
     can_port="can0",
     motor_ids=[1, 2],
     motor_directions=[1.0, 1.0],
-    motor_type="AK80_6_V1p1",
+    motor_type="AK80_6_V2",
     tau_limit=[6.0, 6.0],
     save_dir=".",
     record_video=False,
     safety_position_limit=4.0 * np.pi,
     safety_velocity_limit=20.0,
     perturbation_array=None,
+    velocities_from_positions=False,
 ):
     """run_experiment.
     Hardware control loop for tmotor system.
@@ -63,7 +64,7 @@ def run_experiment(
         directory where log data will be stored
         (Default value=".")
     record_video : bool, optional
-        whether to rocird a video with a camera during the execution
+        whether to rocord a video with a camera during the execution
         (Default value=False)
     safety_position_limit : float, optional
         safety limit for motor positions. Execution will stop if the limits
@@ -79,6 +80,10 @@ def run_experiment(
         If set to None, no perturbations are applied.
         Perturbations can exceed the tau_limits!
         (Default value=None)
+    velocities_from_positions : bool, optional
+        whether to calculate the velocities from the position measurements (True)
+        or use the motor measures velocities (False).
+        (Default value=True)
     """
 
     np.set_printoptions(formatter={"float": lambda x: "{0:0.4f}".format(x)})
@@ -226,10 +231,15 @@ def run_experiment(
                 meas_time[index] = t
 
                 # velocities from position measurements
-                vel1 = (pos1 - last_pos1) / (meas_time[index] - meas_time[index - 1])
-                vel2 = (pos2 - last_pos2) / (meas_time[index] - meas_time[index - 1])
-                last_pos1 = pos1
-                last_pos2 = pos2
+                if velocities_from_positions:
+                    vel1 = (pos1 - last_pos1) / (
+                        meas_time[index] - meas_time[index - 1]
+                    )
+                    vel2 = (pos2 - last_pos2) / (
+                        meas_time[index] - meas_time[index - 1]
+                    )
+                    last_pos1 = pos1
+                    last_pos2 = pos2
                 vel_meas1[index] = vel1
                 vel_meas2[index] = vel2
 
@@ -329,11 +339,12 @@ def run_experiment(
                 ],
                 save_to=os.path.join(save_dir_time, "timeseries"),
                 show=True,
+                highlight_t_intervals=controller.disturbance_intervals,
             )
             plot_perturbation_array(
                 t_final,
                 dt,
                 perturbation_array,
                 save_to=os.path.join(save_dir_time, "perturbations"),
-                show=True,
+                show=False,
             )
